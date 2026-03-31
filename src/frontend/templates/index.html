@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GateKeep - Legal Discovery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .search-highlight { background-color: #fef08a; padding: 0 2px; border-radius: 2px; }
+        .sidebar-link.active { background-color: #1e3a5f; border-left: 3px solid #3b82f6; }
+        .matter-item.active { background-color: #1e3a5f; }
+        .matter-item.archived { opacity: 0.5; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="flex h-screen">
+        <!-- Left Sidebar -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col">
+            <div class="p-4 border-b border-slate-700">
+                <h1 class="text-xl font-bold">GateKeep</h1>
+                <p class="text-xs text-slate-400">Legal Discovery System</p>
+            </div>
+
+            <!-- Matter Selector -->
+            <div class="border-b border-slate-700">
+                <div class="px-4 py-2 flex justify-between items-center">
+                    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Matters</h2>
+                    <button onclick="showCreateMatterModal()" class="text-xs text-blue-400 hover:text-blue-300" title="New Matter">+ New</button>
+                </div>
+                <div id="matter-list" class="max-h-48 overflow-y-auto">
+                    <p class="px-4 py-2 text-xs text-slate-500">Loading matters...</p>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 py-4" id="main-nav" style="display:none;">
+                <a href="#search" class="sidebar-link active flex items-center px-4 py-3 text-sm hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Search
+                </a>
+                <a href="#documents" class="sidebar-link flex items-center px-4 py-3 text-sm hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Documents
+                </a>
+                <a href="#upload" class="sidebar-link flex items-center px-4 py-3 text-sm hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    Drop Zone
+                </a>
+                <a href="#members" class="sidebar-link flex items-center px-4 py-3 text-sm hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+                    Members
+                </a>
+                <a href="#audit" class="sidebar-link flex items-center px-4 py-3 text-sm hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    Audit Trail
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-slate-700">
+                <div id="user-info" class="text-sm">
+                    <p class="text-slate-400">Not authenticated</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- No Matter Selected -->
+            <section id="no-matter-section" class="p-8 flex items-center justify-center h-full">
+                <div class="text-center">
+                    <svg class="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                    <h2 class="text-xl font-medium text-gray-600 mb-2">Select or Create a Matter</h2>
+                    <p class="text-sm text-gray-400 mb-4">Choose a matter from the sidebar or create a new one to get started.</p>
+                    <button onclick="showCreateMatterModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        Create New Matter
+                    </button>
+                </div>
+            </section>
+
+            <!-- Search Section -->
+            <section id="search-section" class="p-8 hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Search</h2>
+                        <p id="search-matter-context" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportCurrentMatter()" class="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Export Matter</button>
+                        <button onclick="showImportModal()" class="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Import Matter</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex gap-4 mb-4">
+                        <div class="flex-1">
+                            <input type="text" id="search-query" placeholder='Search: "contract" AND author:smith NOT draft'
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg">
+                        </div>
+                        <button onclick="performSearch()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                            Search
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                            <input type="date" id="date-from" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                            <input type="date" id="date-to" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">File Type</label>
+                            <select id="file-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="">All Types</option>
+                                <option value="pdf">PDF</option>
+                                <option value="eml">Email (EML)</option>
+                                <option value="pst">Outlook (PST)</option>
+                                <option value="docx">Word (DOCX)</option>
+                                <option value="xlsx">Excel (XLSX)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sender Email</label>
+                            <input type="email" id="sender-email" placeholder="sender@example.com" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-sm text-gray-500">
+                        <strong>Syntax:</strong>
+                        <code class="bg-gray-100 px-2 py-1 rounded">AND</code>
+                        <code class="bg-gray-100 px-2 py-1 rounded">OR</code>
+                        <code class="bg-gray-100 px-2 py-1 rounded">NOT</code>
+                        <code class="bg-gray-100 px-2 py-1 rounded">"exact phrase"</code>
+                        <code class="bg-gray-100 px-2 py-1 rounded">field:value</code>
+                    </div>
+                </div>
+
+                <div id="search-results" class="space-y-4"></div>
+                <div id="search-stats" class="mt-4 text-sm text-gray-500"></div>
+            </section>
+
+            <!-- Documents Section -->
+            <section id="documents-section" class="p-8 hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Documents</h2>
+                        <p id="docs-matter-context" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div id="doc-stats" class="text-sm text-gray-500"></div>
+                </div>
+                <div id="documents-list" class="bg-white rounded-lg shadow"></div>
+            </section>
+
+            <!-- Upload Section -->
+            <section id="upload-section" class="p-8 hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Drop Zone</h2>
+                <p id="upload-matter-context" class="text-sm text-gray-500 mb-6"></p>
+
+                <div id="drop-zone" class="bg-white rounded-lg shadow p-12 text-center border-2 border-dashed border-gray-300 hover:border-blue-500 transition cursor-pointer">
+                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="text-lg font-medium text-gray-700">Drop forensic exports here</p>
+                    <p class="text-sm text-gray-500 mt-2">Supports: .eml, .mbox, .pst, .pdf, .docx, .xlsx, .pptx</p>
+                    <input type="file" id="file-input" multiple class="hidden" accept=".eml,.mbox,.pst,.pdf,.docx,.xlsx,.pptx,.msg">
+                    <button onclick="document.getElementById('file-input').click()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        Select Files
+                    </button>
+                </div>
+
+                <div id="upload-progress" class="mt-6 hidden">
+                    <h3 class="text-lg font-medium mb-3">Processing Queue</h3>
+                    <div id="progress-list" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <!-- Members Section -->
+            <section id="members-section" class="p-8 hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Matter Members</h2>
+                        <p id="members-matter-context" class="text-sm text-gray-500"></p>
+                    </div>
+                    <button onclick="showAddMemberModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                        Add Member
+                    </button>
+                </div>
+                <div id="members-list" class="bg-white rounded-lg shadow"></div>
+            </section>
+
+            <!-- Audit Section -->
+            <section id="audit-section" class="p-8 hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Audit Trail</h2>
+                        <p id="audit-matter-context" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="verifyChain()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm">
+                            Verify Chain
+                        </button>
+                    </div>
+                </div>
+                <span id="chain-status" class="text-sm"></span>
+                <div id="audit-list" class="bg-white rounded-lg shadow mt-4"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Create Matter Modal -->
+    <div id="create-matter-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Create New Matter</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Matter Number *</label>
+                    <input type="text" id="new-matter-number" placeholder="e.g., 2024-CV-00123" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Matter Name *</label>
+                    <input type="text" id="new-matter-name" placeholder="e.g., Smith v. Jones Corp" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+                    <input type="text" id="new-matter-client" placeholder="e.g., Acme Corporation" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="new-matter-desc" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeCreateMatterModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onclick="createMatter()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Matter</button>
+            </div>
+            <p id="create-matter-error" class="text-red-500 text-sm mt-2 hidden"></p>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="add-member-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Add Matter Member</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">User Email *</label>
+                    <input type="email" id="new-member-email" placeholder="colleague@lawfirm.com" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Access Level</label>
+                    <select id="new-member-level" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="viewer">Viewer (read-only)</option>
+                        <option value="editor">Editor (can upload/edit)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeAddMemberModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onclick="addMember()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Grant Access</button>
+            </div>
+            <p id="add-member-error" class="text-red-500 text-sm mt-2 hidden"></p>
+        </div>
+    </div>
+
+    <!-- Import Matter Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-2">Import Matter</h3>
+            <p class="text-sm text-gray-500 mb-4">Upload a previously exported matter .zip file. A new matter will be created automatically.</p>
+            <input type="file" id="import-file" accept=".zip" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeImportModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onclick="importMatter()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Import</button>
+            </div>
+            <p id="import-error" class="text-red-500 text-sm mt-2 hidden"></p>
+            <p id="import-success" class="text-green-600 text-sm mt-2 hidden"></p>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        let currentMatterId = null;
+        let currentMatter = null;
+        let allMatters = [];
+
+        // ── Matter Management ──────────────────────────────────────
+        async function loadMatters() {
+            try {
+                const res = await fetch(`${API}/api/matters?include_archived=true`);
+                const data = await res.json();
+                allMatters = data.matters;
+                renderMatterList(data.matters);
+            } catch (err) {
+                document.getElementById('matter-list').innerHTML =
+                    `<p class="px-4 py-2 text-xs text-red-400">Failed to load matters</p>`;
+            }
+        }
+
+        function renderMatterList(matters) {
+            const list = document.getElementById('matter-list');
+            if (matters.length === 0) {
+                list.innerHTML = `
+                    <div class="px-4 py-4 text-center">
+                        <p class="text-xs text-slate-500 mb-2">No matters yet</p>
+                        <button onclick="showCreateMatterModal()" class="text-xs text-blue-400 hover:text-blue-300">Create your first matter</button>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = matters.map(m => `
+                <div class="matter-item px-4 py-2 text-sm cursor-pointer hover:bg-slate-800 transition ${m.id === currentMatterId ? 'active' : ''} ${!m.is_active ? 'archived' : ''}"
+                     onclick="selectMatter('${m.id}')">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium truncate">${escapeHtml(m.matter_number)}</span>
+                        ${!m.is_active ? '<span class="text-xs bg-slate-600 px-1.5 py-0.5 rounded ml-2">Archived</span>' : ''}
+                    </div>
+                    <p class="text-xs text-slate-400 truncate">${escapeHtml(m.name)}</p>
+                    <p class="text-xs text-slate-500">${m.access_level}</p>
+                </div>
+            `).join('');
+        }
+
+        async function selectMatter(matterId) {
+            currentMatterId = matterId;
+            currentMatter = allMatters.find(m => m.id === matterId);
+
+            renderMatterList(allMatters);
+
+            document.getElementById('no-matter-section').classList.add('hidden');
+            document.getElementById('main-nav').style.display = 'block';
+
+            showSection('search');
+            updateMatterContext();
+            loadDocuments();
+        }
+
+        function updateMatterContext() {
+            if (!currentMatter) return;
+            const ctx = `${currentMatter.matter_number} — ${currentMatter.name}`;
+            ['search-matter-context', 'docs-matter-context', 'upload-matter-context',
+             'members-matter-context', 'audit-matter-context'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = ctx;
+            });
+        }
+
+        // ── Create Matter ──────────────────────────────────────────
+        function showCreateMatterModal() {
+            document.getElementById('create-matter-modal').classList.remove('hidden');
+            document.getElementById('create-matter-modal').classList.add('flex');
+            document.getElementById('create-matter-error').classList.add('hidden');
+        }
+
+        function closeCreateMatterModal() {
+            document.getElementById('create-matter-modal').classList.add('hidden');
+            document.getElementById('create-matter-modal').classList.remove('flex');
+        }
+
+        async function createMatter() {
+            const errorEl = document.getElementById('create-matter-error');
+            const matterNumber = document.getElementById('new-matter-number').value.trim();
+            const matterName = document.getElementById('new-matter-name').value.trim();
+            const clientName = document.getElementById('new-matter-client').value.trim();
+            const description = document.getElementById('new-matter-desc').value.trim();
+
+            if (!matterNumber || !matterName) {
+                errorEl.textContent = 'Matter number and name are required.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/matters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matter_number: matterNumber, name: matterName, client_name: clientName, description }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to create matter');
+                }
+
+                const data = await res.json();
+                closeCreateMatterModal();
+                document.getElementById('new-matter-number').value = '';
+                document.getElementById('new-matter-name').value = '';
+                document.getElementById('new-matter-client').value = '';
+                document.getElementById('new-matter-desc').value = '';
+
+                await loadMatters();
+                selectMatter(data.id);
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // ── Members ────────────────────────────────────────────────
+        function showAddMemberModal() {
+            document.getElementById('add-member-modal').classList.remove('hidden');
+            document.getElementById('add-member-modal').classList.add('flex');
+            document.getElementById('add-member-error').classList.add('hidden');
+        }
+
+        function closeAddMemberModal() {
+            document.getElementById('add-member-modal').classList.add('hidden');
+            document.getElementById('add-member-modal').classList.remove('flex');
+        }
+
+        async function addMember() {
+            const errorEl = document.getElementById('add-member-error');
+            const email = document.getElementById('new-member-email').value.trim();
+            const level = document.getElementById('new-member-level').value;
+
+            if (!email) {
+                errorEl.textContent = 'Email is required.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/api/matters/${currentMatterId}/access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_email: email, access_level: level }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to add member');
+                }
+
+                closeAddMemberModal();
+                document.getElementById('new-member-email').value = '';
+                loadMembers();
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function loadMembers() {
+            if (!currentMatterId) return;
+            const list = document.getElementById('members-list');
+            list.innerHTML = '<p class="p-4 text-gray-500">Loading...</p>';
+
+            try {
+                const res = await fetch(`${API}/api/matters/${currentMatterId}/access`);
+                const data = await res.json();
+
+                list.innerHTML = `
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Name</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Email</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Role</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Granted</th>
+                                ${currentMatter?.access_level === 'owner' ? '<th class="px-4 py-3 text-left font-medium text-gray-500">Actions</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.members.map(m => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-4 py-3 font-medium">${escapeHtml(m.display_name)}</td>
+                                    <td class="px-4 py-3 text-gray-600">${escapeHtml(m.email)}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs ${m.access_level === 'owner' ? 'bg-purple-100 text-purple-700' : m.access_level === 'editor' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}">${m.access_level}</span></td>
+                                    <td class="px-4 py-3 text-gray-500">${new Date(m.granted_at).toLocaleDateString()}</td>
+                                    ${currentMatter?.access_level === 'owner' && m.access_level !== 'owner' ? `
+                                        <td class="px-4 py-3">
+                                            <button onclick="revokeMember('${m.email}')" class="text-red-500 hover:text-red-700 text-xs">Revoke</button>
+                                        </td>
+                                    ` : '<td class="px-4 py-3"></td>'}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                list.innerHTML = `<p class="p-4 text-red-500">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        async function revokeMember(email) {
+            if (!confirm(`Revoke access for ${email}?`)) return;
+            try {
+                await fetch(`${API}/api/matters/${currentMatterId}/access/${encodeURIComponent(email)}`, { method: 'DELETE' });
+                loadMembers();
+            } catch (err) {
+                alert('Failed to revoke access');
+            }
+        }
+
+        // ── Archive Matter ─────────────────────────────────────────
+        async function archiveMatter() {
+            if (!currentMatter) return;
+            if (!confirm(`Archive matter ${currentMatter.matter_number}? It will become read-only.`)) return;
+
+            try {
+                await fetch(`${API}/api/matters/${currentMatterId}/archive`, { method: 'POST' });
+                await loadMatters();
+                currentMatter = allMatters.find(m => m.id === currentMatterId);
+                renderMatterList(allMatters);
+            } catch (err) {
+                alert('Failed to archive matter');
+            }
+        }
+
+        // ── Import / Export ────────────────────────────────────────
+        function showImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+            document.getElementById('import-modal').classList.add('flex');
+            document.getElementById('import-error').classList.add('hidden');
+            document.getElementById('import-success').classList.add('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+            document.getElementById('import-modal').classList.remove('flex');
+        }
+
+        async function importMatter() {
+            const errorEl = document.getElementById('import-error');
+            const successEl = document.getElementById('import-success');
+            const fileInput = document.getElementById('import-file');
+
+            if (!fileInput.files.length) {
+                errorEl.textContent = 'Please select a .zip file.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+            successEl.textContent = 'Importing... this may take a moment.';
+            successEl.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`${API}/api/matters/import`, { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.detail || 'Import failed');
+
+                successEl.textContent = `Imported! ${data.documents_imported} documents into matter ${data.matter_number}.`;
+                fileInput.value = '';
+                await loadMatters();
+                selectMatter(data.new_matter_id);
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+                successEl.classList.add('hidden');
+            }
+        }
+
+        function exportCurrentMatter() {
+            if (!currentMatterId) return;
+            window.open(`${API}/api/matters/${currentMatterId}/export`, '_blank');
+        }
+
+        // ── Navigation ─────────────────────────────────────────────
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = link.getAttribute('href').replace('#', '');
+                showSection(target);
+                document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        function showSection(name) {
+            ['search', 'upload', 'documents', 'members', 'audit'].forEach(s => {
+                document.getElementById(s + '-section').classList.toggle('hidden', s !== name);
+            });
+            document.getElementById('no-matter-section').classList.toggle('hidden', !!currentMatterId);
+
+            if (name === 'documents') loadDocuments();
+            if (name === 'members') loadMembers();
+            if (name === 'audit') loadAuditLogs();
+        }
+
+        // ── Search ─────────────────────────────────────────────────
+        async function performSearch() {
+            if (!currentMatterId) return;
+
+            const query = document.getElementById('search-query').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            const fileType = document.getElementById('file-type').value;
+            const senderEmail = document.getElementById('sender-email').value;
+
+            const body = { query, page: 1, page_size: 20 };
+            if (dateFrom) body.date_from = dateFrom;
+            if (dateTo) body.date_to = dateTo;
+            if (fileType) body.file_types = [fileType];
+            if (senderEmail) body.sender_email = senderEmail;
+
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.innerHTML = '<p class="text-gray-500">Searching...</p>';
+
+            try {
+                const res = await fetch(`${API}/api/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Matter-ID': currentMatterId },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                renderSearchResults(data);
+            } catch (err) {
+                resultsDiv.innerHTML = `<p class="text-red-500">Search failed: ${err.message}</p>`;
+            }
+        }
+
+        function renderSearchResults(data) {
+            const resultsDiv = document.getElementById('search-results');
+            const statsDiv = document.getElementById('search-stats');
+            statsDiv.textContent = `Found ${data.total} results in ${data.took_ms}ms`;
+
+            if (data.results.length === 0) {
+                resultsDiv.innerHTML = '<p class="text-gray-500">No results found.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = data.results.map(hit => `
+                <div class="bg-white rounded-lg shadow p-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-lg font-medium text-blue-600">${escapeHtml(hit.original_filename)}</h3>
+                            ${hit.email_subject ? `<p class="text-sm text-gray-600">Subject: ${escapeHtml(hit.email_subject)}</p>` : ''}
+                            ${hit.sender_email ? `<p class="text-sm text-gray-500">From: ${escapeHtml(hit.sender_email)}</p>` : ''}
+                            ${hit.author ? `<p class="text-sm text-gray-500">Author: ${escapeHtml(hit.author)}</p>` : ''}
+                            ${hit.sent_date ? `<p class="text-sm text-gray-500">Date: ${new Date(hit.sent_date).toLocaleDateString()}</p>` : ''}
+                        </div>
+                        <span class="text-xs bg-gray-100 px-2 py-1 rounded">${hit.file_extension.toUpperCase()}</span>
+                    </div>
+                    ${Object.values(hit.highlights).flat().length > 0 ? `
+                        <div class="mt-2 text-sm text-gray-600 border-t pt-2">
+                            ${Object.values(hit.highlights).flat().slice(0, 2).map(h => `<p class="mb-1">${h.replace(/<\/?mark>/g, '<mark class="search-highlight">')}</p>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // ── Upload ─────────────────────────────────────────────────
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-blue-500'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', () => { handleFiles(fileInput.files); });
+
+        async function handleFiles(files) {
+            if (!files.length || !currentMatterId) return;
+
+            const formData = new FormData();
+            for (const file of files) { formData.append('files', file); }
+
+            document.getElementById('upload-progress').classList.remove('hidden');
+            const progressList = document.getElementById('progress-list');
+            progressList.innerHTML = '<p class="text-sm text-gray-500">Uploading...</p>';
+
+            try {
+                const res = await fetch(`${API}/api/upload`, {
+                    method: 'POST',
+                    headers: { 'X-Matter-ID': currentMatterId },
+                    body: formData,
+                });
+                const data = await res.json();
+                progressList.innerHTML = `<p class="text-sm text-green-600">${data.message} (Task: ${data.task_id})</p>`;
+            } catch (err) {
+                progressList.innerHTML = `<p class="text-sm text-red-500">Upload failed: ${err.message}</p>`;
+            }
+        }
+
+        // ── Documents ──────────────────────────────────────────────
+        async function loadDocuments() {
+            if (!currentMatterId) return;
+            const listDiv = document.getElementById('documents-list');
+            listDiv.innerHTML = '<p class="p-4 text-gray-500">Loading...</p>';
+
+            try {
+                const res = await fetch(`${API}/api/documents?page=1&page_size=50`, {
+                    headers: { 'X-Matter-ID': currentMatterId },
+                });
+                const data = await res.json();
+
+                if (data.documents.length === 0) {
+                    listDiv.innerHTML = '<p class="p-4 text-gray-500">No documents in this matter yet. Use the Drop Zone to upload.</p>';
+                    return;
+                }
+
+                listDiv.innerHTML = `
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Filename</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Type</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Author/Sender</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Date</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">OCR</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.documents.map(d => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-4 py-3 font-medium text-blue-600">${escapeHtml(d.original_filename)}</td>
+                                    <td class="px-4 py-3"><span class="bg-gray-100 px-2 py-1 rounded text-xs">${d.file_extension.toUpperCase()}</span></td>
+                                    <td class="px-4 py-3 text-gray-600">${escapeHtml(d.author || d.sender_email || '-')}</td>
+                                    <td class="px-4 py-3 text-gray-500">${d.sent_date ? new Date(d.sent_date).toLocaleDateString() : '-'}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs ${d.ocr_status === 'completed' ? 'bg-green-100 text-green-700' : d.ocr_status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100'}">${d.ocr_status}</span></td>
+                                    <td class="px-4 py-3 text-gray-500">${formatBytes(d.file_size_bytes)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                listDiv.innerHTML = `<p class="p-4 text-red-500">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        // ── Audit ──────────────────────────────────────────────────
+        async function loadAuditLogs() {
+            if (!currentMatterId) return;
+            const listDiv = document.getElementById('audit-list');
+            listDiv.innerHTML = '<p class="p-4 text-gray-500">Loading...</p>';
+
+            try {
+                const res = await fetch(`${API}/api/audit/logs?page=1&page_size=50`);
+                const data = await res.json();
+
+                const matterLogs = data.logs.filter(l =>
+                    l.details?.matter_id === currentMatterId || !l.details?.matter_id
+                );
+
+                listDiv.innerHTML = `
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Timestamp</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Action</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">User</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">Resource</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-500">IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${matterLogs.map(l => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-gray-500">${new Date(l.timestamp).toLocaleString()}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">${l.action}</span></td>
+                                    <td class="px-4 py-3 text-gray-600">${l.user_email || 'system'}</td>
+                                    <td class="px-4 py-3 text-gray-500">${l.resource_type}</td>
+                                    <td class="px-4 py-3 text-gray-500">${l.ip_address || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                listDiv.innerHTML = `<p class="p-4 text-red-500">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        async function verifyChain() {
+            const status = document.getElementById('chain-status');
+            status.textContent = 'Verifying...';
+            try {
+                const res = await fetch(`${API}/api/audit/verify-chain`);
+                const data = await res.json();
+                status.textContent = data.valid ? '✓ Chain integrity verified' : `✗ ${data.message}`;
+                status.className = data.valid ? 'text-sm text-green-600' : 'text-sm text-red-600';
+            } catch (err) {
+                status.textContent = 'Verification failed';
+                status.className = 'text-sm text-red-600';
+            }
+        }
+
+        // ── Auth ───────────────────────────────────────────────────
+        async function checkAuth() {
+            try {
+                const res = await fetch(`${API}/auth/me`);
+                if (res.ok) {
+                    const user = await res.json();
+                    document.getElementById('user-info').innerHTML = `
+                        <p class="font-medium">${escapeHtml(user.display_name)}</p>
+                        <p class="text-slate-400 text-xs">${escapeHtml(user.email)}</p>
+                        <p class="text-slate-500 text-xs capitalize">${user.role}</p>
+                    `;
+                    await loadMatters();
+                } else {
+                    document.getElementById('user-info').innerHTML = `
+                        <a href="${API}/auth/login" class="text-blue-400 hover:text-blue-300 text-sm">Sign in with Microsoft</a>
+                    `;
+                }
+            } catch {
+                document.getElementById('user-info').innerHTML = `
+                    <a href="${API}/auth/login" class="text-blue-400 hover:text-blue-300 text-sm">Sign in with Microsoft</a>
+                `;
+            }
+        }
+
+        // ── Utilities ──────────────────────────────────────────────
+        function escapeHtml(str) { if (!str) return ''; const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+        function formatBytes(bytes) { if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / 1048576).toFixed(1) + ' MB'; }
+
+        document.getElementById('search-query').addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
+
+        checkAuth();
+    </script>
+</body>
+</html>
