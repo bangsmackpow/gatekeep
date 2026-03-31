@@ -147,6 +147,7 @@ services:
   # Web Application (FastAPI + Frontend)
   # ──────────────────────────────────────────────
   web:
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-web:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -169,7 +170,6 @@ services:
       - LOG_LEVEL=info
       - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
-      - ./src:/app/src
       - upload-staging:/app/uploads
     ports:
       - "${WEB_HOST_PORT:-8000}:8000"
@@ -199,6 +199,7 @@ services:
   # Ingestion Worker (Celery)
   # ──────────────────────────────────────────────
   ingestion-worker:
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.worker
@@ -215,8 +216,6 @@ services:
       - STIRLING_PDF_URL=http://stirling-pdf:8080
       - LOG_LEVEL=info
     volumes:
-      - ./workers:/app/workers
-      - ./src:/app/src
       - upload-staging:/app/uploads
     depends_on:
       postgres:
@@ -240,6 +239,7 @@ services:
   # Celery Beat (Periodic Tasks)
   # ──────────────────────────────────────────────
   celery-beat:
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.worker
