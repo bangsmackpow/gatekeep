@@ -1,34 +1,5 @@
 services:
   # ──────────────────────────────────────────────
-  # Reverse Proxy (SSL/TLS Termination)
-  # ──────────────────────────────────────────────
-  traefik:
-    image: traefik:v3.0
-    container_name: gatekeep-traefik
-    command:
-      - "--api.dashboard=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-certs:/letsencrypt
-    networks:
-      - gatekeep-network
-    restart: unless-stopped
-    profiles:
-      - production
-
-  # ──────────────────────────────────────────────
   # PostgreSQL (Metadata + Audit Logs)
   # ──────────────────────────────────────────────
   postgres:
@@ -147,7 +118,7 @@ services:
   # Web Application (FastAPI + Frontend)
   # ──────────────────────────────────────────────
   web:
-    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-web:${IMAGE_TAG:-latest}
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/bangsmackpow/gatekeep}/gatekeep-web:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -194,12 +165,14 @@ services:
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=letsencrypt"
       - "traefik.http.services.web.loadbalancer.server.port=8000"
+    profiles:
+      - full
 
   # ──────────────────────────────────────────────
   # Ingestion Worker (Celery)
   # ──────────────────────────────────────────────
   ingestion-worker:
-    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-worker:${IMAGE_TAG:-latest}
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/bangsmackpow/gatekeep}/gatekeep-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.worker
@@ -239,7 +212,7 @@ services:
   # Celery Beat (Periodic Tasks)
   # ──────────────────────────────────────────────
   celery-beat:
-    image: ${GATEKEEP_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY:-local}}/gatekeep-worker:${IMAGE_TAG:-latest}
+    image: ${GATEKEEP_REGISTRY:-ghcr.io/bangsmackpow/gatekeep}/gatekeep-worker:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.worker
@@ -274,6 +247,35 @@ services:
     restart: unless-stopped
     profiles:
       - monitoring
+
+  # ──────────────────────────────────────────────
+  # Traefik (Reverse Proxy / SSL)
+  # ──────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.0
+    container_name: gatekeep-traefik
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+    profiles:
+      - production
 
 volumes:
   postgres-data:
