@@ -1,0 +1,194 @@
+# Portainer-compatible compose file
+# No build sections, no local volume mounts, no traefik
+# Paste this directly into Portainer's stack editor
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gatekeep-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gatekeep}
+      POSTGRES_USER: ${POSTGRES_USER:-gatekeep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gatekeep}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: gatekeep-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.enrollment.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "${ELASTIC_HOST_PORT:-9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: gatekeep-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  stirling-pdf:
+    image: frooodle/s-pdf:latest
+    container_name: gatekeep-stirling
+    environment:
+      - DOCKER_ENABLE_SECURITY=false
+      - SECURITY_ENABLELOGIN=false
+      - SYSTEM_DEFAULTLOCALE=en-US
+      - SYSTEM_MAXFILESIZE=100
+    volumes:
+      - stirling-data:/usr/share/tessdata
+      - stirling-configs:/configs
+    ports:
+      - "${STIRLING_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/info/status | grep -q UP"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/bangsmackpow/gatekeep/gatekeep-web:latest
+    container_name: gatekeep-web
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gatekeep}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gatekeep}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USER=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_STORAGE_CONTAINER=${AZURE_STORAGE_CONTAINER:-gatekeep-artifacts}
+      - ENTRA_TENANT_ID=${ENTRA_TENANT_ID}
+      - ENTRA_CLIENT_ID=${ENTRA_CLIENT_ID}
+      - ENTRA_CLIENT_SECRET=${ENTRA_CLIENT_SECRET}
+      - ENTRA_REDIRECT_URI=${ENTRA_REDIRECT_URI:-https://localhost/auth/callback}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION=3600
+      - LOG_LEVEL=info
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - upload-staging:/app/uploads
+    ports:
+      - "${WEB_HOST_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  ingestion-worker:
+    image: ghcr.io/bangsmackpow/gatekeep/gatekeep-worker:latest
+    container_name: gatekeep-ingestion-worker
+    command: celery -A workers.ingestion.worker worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-2}
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gatekeep}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gatekeep}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USER=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_STORAGE_CONTAINER=${AZURE_STORAGE_CONTAINER:-gatekeep-artifacts}
+      - STIRLING_PDF_URL=http://stirling-pdf:8080
+      - LOG_LEVEL=info
+    volumes:
+      - upload-staging:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      stirling-pdf:
+        condition: service_started
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+  celery-beat:
+    image: ghcr.io/bangsmackpow/gatekeep/gatekeep-worker:latest
+    container_name: gatekeep-celery-beat
+    command: celery -A workers.ingestion.worker beat --loglevel=info
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gatekeep}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gatekeep}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - gatekeep-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+  elasticsearch-data:
+    driver: local
+  redis-data:
+    driver: local
+  stirling-data:
+    driver: local
+  stirling-configs:
+    driver: local
+  upload-staging:
+    driver: local
+
+networks:
+  gatekeep-network:
+    driver: bridge
